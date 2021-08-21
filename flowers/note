@@ -1,0 +1,427 @@
+1. 将路由都抽离进各模块文件进行管理
+2. 这个是移动端项目，所以ui就可以使用vant ui。（这个组件库不大，可以全量引入，当然也可以按需引入）
+3. 将与各模块相关的数据分封装到各模块的区域，由于这是一个移动端项目，在之后的不断更迭中，有可能一些模块不要，直接将模块删除就可以了。因为它的相关
+数据都放在模块当中，一删除，相关数据都删除，不要怕影响其他人员的模块。当然了有公共的部分，肯定放在公共位置。
+4. 应用级别的公共组件放在应用的components中，模块中的公有组件放在模块的components当中，模块的私有组件放在模块的自建文件夹当中。这样很方便
+后面删代码，替换模块等
+5.Vuex数据持久化
+    npm install vuex-persistedstate  --save
+
+    import createPersistedState from 'vuex-persistedstate'
+    export default new Vuex.Store({
+      state,
+      mutations,
+      getters,
+      plugins: [createPersistedState()]//也可以在单独的文件中创建新的插件实例，但必须将其导入并添加到主Vuex文件中的plugins对象中。
+    })
+    提示：1.默认包Vuex中的所有数据都放在localStorage中，但是它的存储量只有5M，所以肯定不是所有数据都保存在本地的，只有部分而已，所以需要配置
+         2.createPersistedState插件的本质还是使用同样的web开发常见的几种存储方式，其特点就是结合了存储方式,在入口统一配置就不需要每次都手动写存储方法。
+         3.createPersistedState插件默认使用storage:localStorage存储，默认的存储键名key是“vuex”,而且提供了option参数来修改默认配置和个性化存储。
+    在我们的localstorage中就会看到有一个vuex的key，值为{"showLogin":false,"navIndex":true,"token":"64c9bbf8541b47af8d891b
+ 20247ae6a3","nickName":"百宝箱","updataCart":false,"showLoading":false}的字符串的JSON数据
+
+    每次我们更新vuex的状态，localstorage中的vuex也会随之改变
+
+    API
+    createPersistedState([options])
+    使用给定的选项创建插件的新实例。可以提供以下选项来配置您的特定需求的插件：
+        (1)key <String>：存储持久状态的键。（默认：vuex）
+        (2)paths <Array>：部分路径可部分保留状态的数组。如果没有给出路径，则将保留完整状态。如果给出一个空数组，则不会保留任何状态。必须使用
+ 点符号指定路径。如果使用模块，请包括模块名称（默认：[]）
+                    缓存Vuex多个模块下的指定某个模块的state，通过修改path配置来实现
+                plugins: [
+                    createPersistedState({
+                      key: 'zdao',
+                      paths: ['user'] // 这里便只会缓存user模块下的state值
+                    })
+                  ]
+            提示：如果path和reducer同时存在则使用reducer, 忽悠paths属性
+        (3)reducer <Function>：一个函数，将被调用来减少基于给定的路径持久化的状态。默认包含这些值。
+                reducer (state) {
+                      return {
+                        // 只保存module user内部所有变量持久化
+                        user: state.user
+                      }
+                    }
+                  })],
+
+        (4)subscriber <Function>：一个被调用来设置突变订阅的函数。默认为store => handler => store.subscribe(handler)
+        (5)storage <Object>：而不是（或与）getState和setState。默认为localStorage。
+             plugins: [createPersistedState({
+                  storage: window.sessionStorage//想要使用存储到sessionStorage，只需要修改storage的配置
+              })]
+
+                plugins: [
+                  createPersistedState({
+                    storage: {
+                      getItem: (key) => Cookies.get(key),
+                      //所以如果需要使用本地存储但需要保护数据的内容，则可以对其进行加密。
+                      setItem: (key, value) =>
+                        Cookies.set(key, value, { expires: 3, secure: true }),
+                      removeItem: (key) => Cookies.remove(key)
+                    }
+                  })
+                ]
+
+
+        (6)getState <Function>：将被调用以重新水化先前持久状态的函数。默认使用storage。
+        (7)setState <Function>：将被调用来保持给定状态的函数。默认使用storage。
+        (8)filter <Function>：一个将被调用以过滤setState最终将在存储中筛选过滤的函数。默认为() => true。
+            使用filter属性可以过滤掉不同的mutation提交造成不想要的数据更新缓存。
+            示例：我们同时由setUserA和setUserB来更改token的状态，但是我们在触发setUserB时候的修改不要影响到所存储的token值，我们
+ 就可以设置filter来过滤mutation
+            plugins: [
+                createPersistedState({
+                  key: 'zdao',
+                  paths: ['user'],
+                  filter: (mutation) => {
+                    console.log(mutation)
+                    /*  mutation
+                    {
+                      payload: { token: "5491CC8FBB36408C9R7167yY"}
+                      type: "user/setUserA"
+                    }
+                    */
+                    // 这个时候触发setUserB则不会触发影响缓存的值
+                    return mutation.type.indexOf('user/setUserA') !== -1
+                  }
+                })
+              ]
+
+
+    自定义存储
+    如果在本地存储中存储Vuex存储的状态并不理想。人们可以轻松地实现功能使用cookie（或任何其他你可以想到的）;
+
+    import { Store } from 'vuex'
+    import createPersistedState from 'vuex-persistedstate'
+    import * as Cookies from 'js-cookie'
+
+    const store = new Store({
+      // ...
+      plugins: [
+        createPersistedState({
+          storage: {
+            getItem: key => Cookies.get(key),
+            setItem: (key, value) => Cookies.set(key, value, { expires: 3, secure: true }),
+            removeItem: key => Cookies.remove(key)
+          }
+        })
+      ]
+    })
+
+    实际上，可以传递任何遵循存储协议（getItem，setItem，removeItem等）的对象：
+    // 用sessionStorage替换localStorage
+    createPersistedState({ storage: window.sessionStorage })
+
+
+6.mock数据（vue项目mock数据方案之一：webpack的devServer.before）
+mock模拟接口，使用默认的devserve 完成，考虑到这边有后台提供的模拟数据，随不需要自己随机生成数据，如果说有需要自己随机生成数据，可以使
+用[mockjs]
+前情提要:webpack的devServer.before 可以提供了一个在 devServer 内部的 所有中间件执行之前的自定义执行函数。
+       故：可以采用此方法来模拟后台数据接口。(利用了webpack-dev-server实现的mock功能)
+        （1）模拟数据
+        //data.json
+        {
+          "seller": {...},
+          "goods": [{...}, {...}, ...],
+          "ratings": [{...}, {...}, ...]
+        }
+
+        (2)相关配置
+        //vue.config.js
+       const appData = require('./data.json')  // 导入数据文件
+       const seller = appData.seller
+       const goods = appData.goods
+       const ratings = appData.ratings
+
+       module.exports = {
+         devServer: {
+           before(app, server, compiler) {
+             app.get('/api/seller', (req, res) => {
+               res.json({
+                 errno: 0,
+                 data: seller
+               })
+             })
+             app.get('/api/goods', (req, res) => {
+               res.json({
+                 errno: 0,
+                 data: goods
+               })
+             })
+             app.get('/api/ratings', (req, res) => {
+               res.json({
+                 errno: 0,
+                 data: ratings
+               })
+             })
+           }
+         }
+       }
+        （3）使用
+        axios.get('/api/seller?id=' + this.seller.id).then((res) => {
+              this.seller = res.data.data
+            })
+        参考：https://www.jianshu.com/p/c4883c04acb3
+        mock主要就是通过正常请求在后端接口进度落后的情况下，还能获取到和后端约定数据结构一样的模拟数据的一门技术，以避免后端接口进度滞后影响我们正常的开发。
+        当后端提供所有接口后，将DevServe.before注释掉即可
+
+        提示：1.在公司很少 使用mock.js，如果是跑自己的demo可以使用mock.js。但公司很少使用，因为你要跟后端进行交互，后台已经把数据结构给你订好了，直接使用这个数据
+当我们拿到数据结构之后，直接进行模拟就可以了
+             2.如果想要模拟服务器接收post请求，判断请求中是否有某项数据，根据这个判断来返回不同的数据，可以使用中间件body-parser。它在处理程序之前，
+在中间件中对传入的请求体进行解析（response body），得到request.body数据，如果devServe中没有使用这个中间件，那么mock中获取request.body将为
+undefined，无法获取
+    注意:body-parser是非常常用的一个express中间件，作用是对post请求的请求体进行解析。使用非常简单，以下两行代码已经覆盖了大部分的使用场景。
+                app.use(bodyParser.json());
+                app.use(bodyParser.urlencoded({ extended: false }));
+
+            示例:
+                npm install body-parser --save-dev
+                //vue.config.js
+                const bodyParser = require("body-parser");
+                module.exports = {
+                    devServer: {
+                         before: app => {
+                      // 设置参数处理中间件
+                      app.use(bodyParser.json()); //解析json post参数
+                      //解析urlencoded url参数
+                      app.use(
+                        bodyParser.urlencoded({
+                          extended: true,//body 的urlencoded字符，只支持uft-8的编码的字符.返回的对象是一个键值对，当extended
+                                          //为false的时候，键值对中的值就为'String'或'Array'形式，为true的时候，则可为任何数据类型。
+                        }),
+                      );
+
+                      app.post("/dev-api/user/login", (req, res) => {
+                        const { username } = req.body;
+
+                        if (username === "admin" || username === "jerry") {
+                          res.json({
+                            code: 1,
+                            data: username,
+                          });
+                        } else {
+                          res.json({
+                            code: 10204,
+                            message: "用户名或密码错误",
+                          });
+                        }
+                      });
+
+                      app.get("/dev-api/user/info", (req, res) => {
+                        //   请求头获取token
+                        const auth = req.headers["authorization"];
+                        // 转换为响应的roles
+                        const roles = auth.split(" ")[1] === "admin" ? ["admin"] : ["editor"];
+                        res.json({
+                          code: 1,
+                          data: roles,
+                        });
+                      });
+                    },
+                    }
+                }
+             3. body-parser 提供四种解析器
+                          JSON body parser
+                          Raw body parser
+                          Text body parser
+                          URL-encoded form body parser
+
+                    bodyParser.json是用来解析json数据格式的。bodyParser.json(options) options可选 ， 这个方法返回一个仅仅用来解析json格式
+ 的中间件。这个中间件能接受任何body中任何Unicode编码的字符。支持自动的解析gzip和 zlib。
+                    bodyParser.urlencoded则是用来解析req.body中的数据,也就是解析通过form表单提交的数据，当请求头中包含这样的信息：
+Content-Type: application/x-www-form-urlencoded时，就可以用bodyParser.urlencoded来解析request.body。解析成功后覆盖原来的req.body，如
+果解析失败则为 {}。该模块有一个属性extended，
+                extended: false：表示使用系统模块querystring来处理，也是官方推荐的
+                extended: true：表示使用第三方模块qs来处理
+
+              注意：额外引用body-parse的这种方式已经被弃用。body-parse已经内嵌在express中了，直接使用express即可。
+              示例：
+              const express = require('express')
+
+              devServer:{
+                  port:3333,//固定端口号，让它不占用常用端口
+                  //在devserver里面配置before进行接口拦截，然后让拦截返回自己弄的mock数据。当后端提供所有接口后，注释掉devserver.before即可
+                  before(app){
+
+                    // app.use(bodyParse.json())
+                    // app.use(bodyParse.urlencoded({extended:false}))
+                    app.use(express.json())
+                    app.use(express.urlencoded({extended:false}))
+                    /
+                    // 首页相关mock接口
+                    HomeMockApi(app)
+                    // 登录相关mock 接口
+                    LoginMockApi(app)
+                      //发现相关mock接口
+                    FoundMockApi(app)
+                  }
+              },
+
+
+
+
+7.封装axios实例
+        通过使用promise进行任务流处理，让其符合开闭原则。
+        提示：之所以在Vue.prototype上挂载一个$axios，是因为有人喜欢通过通过这样方式使用。而我更喜欢通过单独文件进行封装，所以两种方
+ 式都都会提供
+
+8. rem 适配
+    1.安装lib-flexible（用于设置 rem 基准值）
+        npm i -S amfe-flexible
+    2.在main.js文件中引入lib-flexible：
+        import 'amfe-flexible'
+    3.安装postcss-pxtorem（postcss-pxtorem是一款 postcss 插件，用于将单位转化为 rem）
+         npm install postcss-pxtorem --save-dev
+    4. 添加视口标签
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    5.vue.config.js添加：
+
+          const autoprefixer = require('autoprefixer');
+          const pxtorem = require('postcss-pxtorem');
+
+          module.exports = {
+              css: {
+                  loaderOptions: {
+                    postcss: {
+                      plugins: [    使用autoprefixer模块和pxtorem模块
+                        autoprefixer(),
+                        pxtorem({
+                          rootValue: 75,//通常我们是根据设计图来定这个值，原因很简单，便于开发。假如设计图给的宽度是750，我们通常就会把rootValue设置为75，这样我们写样式时，可以直接按照设计图标注的宽高来1:1还原开发。
+                          propList: ['*'],
+                          "selectorBlackList":["van-"]   //排除vant框架相关组件样式
+                         })
+                        ]
+                  }
+                  }
+              }
+          };
+
+    6.在根目录下新建postcss.config.js，内容为：
+
+        const autoprefixer = require('autoprefixer');
+        const pxtorem = require('postcss-pxtorem');
+        module.exports = ({ file }) => {
+            let remUnit
+            if (file && file.dirname && file.dirname.indexOf('vant') > -1) {
+                remUnit = 37.5  //vant-UI的官方根字体大小是37.5。之所以设为37.5，是为了引用像vant、mint-ui这样的第三方UI框
+ 架，因为第三方框架没有兼容rem，用的是px单位，将rootValue的值设置为设计图宽度（这里为750px）75的一半，即可以1:1还原vant、mint-ui
+ 的组件，否则会样式会有变化，例如按钮会变小。既然设置成了37.5 那么我们必须在写样式时，也将值改为设计图的一半。
+
+            } else {
+                remUnit = 75
+            }
+            return {
+                plugins: [
+                    autoprefixer(),
+                    pxtorem({
+                        rootValue: remUnit,
+                        propList: ['*'],
+                        selectorBlackList: ['van-circle__layer']
+                    })
+                ]
+            }
+        }　　　　
+    提示：注：动态设置rootValue的大小，即对于vant-ui框架的组件 将rootValue设置成37.5，对于我们自己的750宽度的设计稿的将rootValue设置成75
+         注: 版本不能过高，否则会导致一些莫名其妙的错误，比如什么options错误等
+         注: 参考https://juejin.cn/post/6844903863070228494#heading-8
+             https://segmentfault.com/a/1190000022043508
+         注： 如果报这个错Syntax Error: Error: PostCSS plugin postcss-pxtorem requires PostCSS 8. Migration guide for end-user，
+              说明postcss版本太高，我们换成5.1.1即可
+
+
+ 9. 订单管理页及对应的订单模块(围绕订单状态statusCode做的)
+
+ (1)订单模块部分:
+    1. 在store文件中，用单独的文件来维护订单管理模块。
+    2. 通过axios封装一系列关于订单的方法。同样用一个单独的文件进行管理。
+    3. 在订单模块的action中，定义获取所有订单数据方法，方法名可以用es6计算属性 + 常量的方式，并用单独的文件管理方法名。当dispatch触发该方法的
+ 时候，向后端发送请求，获取所有订单数据。然后对订单列表数据处理。比如我可以增加对时间的处理，对一些不会改变的属性进行冻结。避免无用的setter/getter。同时
+ 根据订单状态(状态码)来划分数据列表。存储在state当中。比如已完成的订单就划分给订单已完成订单状态码来管理。待收货的订单我就划分给待收货订单状态码
+ 来管理。
+    4. 在订单模块的state中存储数据之后
+
+ (2) 创建一个文件来配置订单的状态
+    1.不同订单状态对应不同的文案(比如后端返回order_status为10，就是待支付。为40就是交易成功、50就是交易关闭等等)，
+    2.再根据订单状态划分出不同状态对应不同操作按钮数组。每个按钮对象都具有操作方法名、文本、样式类型等。当我们在订单管理页点击某个订单的操作按钮时，
+ 我们就执行配置好的方法名，用es6计算属性的方式去调用相应的封装好的同名方法请求即可。
+
+                        示例
+                           [
+                            10: [ // 订单状态码
+                                {
+                                  text: '待支付',//文案
+                                  operationsKey: 'toBuy',//方法名
+                                  type: 'info'//样式类型
+                                }
+                              ],
+                           ]
+
+ (3) 订单管理页:
+ 根据订单的状态做顶部状态栏tabBar(状态有： 全部、待支付、待发货、待收货、已完成)，切换tab的时候，切换列表数据就可以了。然后给一些元素、组件 定
+ 义样式渲染数据出来就可以了。
+
+
+提示：当来不及开发时，可能会将h5页面内嵌在微信小程序中，做分享和支付时很麻烦，有很多坑，可以问李老师。
+
+（4）购买支付的订单逻辑:
+ 在购物车中点击购买/请求页购买，先去后台创建订单 ----> 有了订单后再拿到订单号----> 然后再去调用发起支付的接口 ----> 选择支付方式 ----> 调起支付。
+
+点击去支付，然后创建订单，拿到订单信息，根据环境选择调起微信支付或者支付宝支付，比如选择微信支付，执行对应方法，创建实例，然后发起支付，输入密码，
+完成支付，拿到结果，跳转到结果页，将支付结果进行渲染。
+    如果是支付宝支付，后台根据商品信息去支付宝那边下单，下完单之后给我们一个url，然后我们跳转一下，进入支付页面，支付完成之后，根据返回的信息，
+ 跳转回我们的结果页。
+
+ 10.微信登录逻辑
+ (1)安装两个工具 vconsole ： 这个工具是针对手机网页的调试面板，在手机上进行网页调试。
+    特性介绍：
+           查看 console 日志
+           查看网络请求
+           查看页面 element 结构
+           查看 Cookies、localStorage 和 SessionStorage
+           手动执行 JS 命令行
+           自定义插件
+    安装：npm install vconsole -D
+    在main.js中引用：
+        import VConsole from 'vconsole'
+        const vconsole = new VConsole()
+        Vue.use(vconsole)
+
+(2)内网渗透工具http://www.mofasuidao.cn/rest/page/help
+内网渗透工具有两个：魔法隧道 和 哲西云(贵)。（本地调试工具可以用这两个，可以大大减少调试时间）
+使用魔法隧道工具来进行内网穿透。
+提示：服务起在本地，跑在本地，但是可以在公网进行访问。当我们在微信调试的时候，可以映射到公网，然后公网就可以访问，进行调试。正常情况都可以调试，
+但在调试支付接口时，就不可以了，有协议方面的问题。所以如果要调试支付接口，可以使用哲西云，付几十元钱就可以了。
+提示：如果链接隧道后发现速度慢，是因为没有打包，包太大了
+
+在哲西云用本地服务器地址开启隧道后，使用生成的域名即可访问。
+打开微信开发者工具，在开发者模式下选择公众号网页调试，然后输入地址，就可以在微信调试了。
+
+（3） 微信登录（三步过程）
+        提示：准备微信公众号appId，订单支付会用到
+        通过微信开放的url，获取code。也就是常说的getcode的过程
+        拿到code后，将code给后端，后端解析得到openid，这时相当于登录成功了。
+        通过后端返回openid，拿到微信用户信息
+
+        加载微信sdk，通过动态创建script的方式引入
+
+        初始化微信支付时，会需要一些信息，这些信息在创建订单的时候，会给到我们。根据这些信息进行微信支付的初始化，然后就是支付，有支付成功或失败2种结果。
+
+提示：测试号不能测试微信支付，其他都正常
+在微信公众号平台的个人订阅号里面，在开发者工具中选择公众平台测试号，在里面获得微信号、appID、appsecret，这三个id就是开发项目所需要用到的
+    微信号：gh_82e8a6270fd9
+    appID：wx1cd1ef72c6d91bb8
+    appsecret： d970074301da74011dcd3fc28d98e779
+
+由于我们的微信是不能直接用ip访问的，所以需要做ip映射来绑定我们的域名，所以我们需要做一个内网穿透，用一个域名来绑定本地服务127.0.0.1，至于如何进行
+内网穿透，可以使用一些内网穿透工具。比如natapp、魔法隧道、哲西云这些
+
+示例：像netapp是免费的，就可以使用它。打开客户端程序，在控制台会显示映射本地服务器的一个域名，然后使用它就可以访问。
+
+提示:微信的静默授权，只需要code，但无法获取用户信息（微信h5静默、非静默授权获取用户openid的方法）
+
+
+11.支付宝支付
+发起支付后，会给我们一个表单，然后将其放到一个组件中，通过v-html进行渲染表单内容，然后从里面获取按钮，触发即可。
+
+注意：由于我们都要跳转到支付结果页，所以要把结果页地址发给后台，在支付宝那边处理完支付之后，然后返回这个地址

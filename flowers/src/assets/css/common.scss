@@ -1,0 +1,35 @@
+@import "normalize.scss";
+
+html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, em, img, s, strong, sub, sup, tt,
+b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, footer, header, nav, section{
+  margin: 0;
+  padding: 0;
+}
+
+
+.overflow_n{
+  display: -webkit-box;
+  /*-webkit-line-clamp: 2;*/
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*改变input placeholder字体颜色*/
+input::-webkit-input-placeholder { /* WebKit, Blink, Edge */
+  color : #eeeeee;
+}
+:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
+  color : #eeeeee;
+}
+::-moz-placeholder { /* Mozilla Firefox 19+ */
+  color : #eeeeee;
+}
+input:-ms-input-placeholder { /* Internet Explorer 10-11 */
+  color : #eeeeee;
+}
+input::-ms-input-placeholder { /* Microsoft Edge */
+  color : #eeeeee;
+}
